@@ -199,7 +199,7 @@ spring.jpa.show-sql=true
 spring.jpa.properties.hibernate.format_sql=true
 Cách chạy project
 1. Clone project
-git clone https://github.com/your-username/your-repository.git
+git clone https://github.com/CaoVanCuong04/spring-boot-ecommerce-api.git
 2. Mở project bằng IDE
 
 Có thể dùng:
