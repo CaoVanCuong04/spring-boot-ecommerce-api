@@ -21,6 +21,7 @@ import com.example.productapi.entity.User;
 import com.example.productapi.enums.DiscountType;
 import com.example.productapi.enums.OrderStatus;
 import com.example.productapi.enums.UserRole;
+import com.example.productapi.exception.BadRequestException;
 import com.example.productapi.exception.ForbiddenException;
 import com.example.productapi.exception.ResourceNotFoundException;
 import com.example.productapi.repository.CartRepository;
@@ -182,6 +183,7 @@ public class OrderService {
 		return mapToResponse(order);
 	}
 
+	@Transactional
 	public OrderResponse updateOrderStatus(Long orderId, UpdateOrderStatusRequest request) {
 		User currentUser = currentUserService.getCurrentUser();
 
@@ -194,6 +196,8 @@ public class OrderService {
 
 		Order order = orderRepository.findById(orderId)
 				.orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng với id = " + orderId));
+
+		validateOrderStatusTransition(order.getStatus(), request.getStatus());
 
 		order.setStatus(request.getStatus());
 
@@ -211,6 +215,48 @@ public class OrderService {
 	private Order findOrderById(Long orderId) {
 		return orderRepository.findById(orderId)
 				.orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng với id = " + orderId));
+	}
+
+	private void validateOrderStatusTransition(OrderStatus currentStatus, OrderStatus newStatus) {
+		if (currentStatus == null || newStatus == null) {
+			throw new BadRequestException("Trạng thái đơn hàng không hợp lệ");
+		}
+
+		if (currentStatus == newStatus) {
+			throw new BadRequestException("Đơn hàng đã ở trạng thái " + currentStatus);
+		}
+
+		if (currentStatus == OrderStatus.PENDING) {
+			if (newStatus == OrderStatus.CONFIRMED || newStatus == OrderStatus.CANCELLED) {
+				return;
+			}
+
+			throw new BadRequestException("Đơn hàng PENDING chỉ được chuyển sang CONFIRMED hoặc CANCELLED");
+		}
+
+		if (currentStatus == OrderStatus.CONFIRMED) {
+			if (newStatus == OrderStatus.SHIPPING || newStatus == OrderStatus.CANCELLED) {
+				return;
+			}
+
+			throw new BadRequestException("Đơn hàng CONFIRMED chỉ được chuyển sang SHIPPING hoặc CANCELLED");
+		}
+
+		if (currentStatus == OrderStatus.SHIPPING) {
+			if (newStatus == OrderStatus.COMPLETED) {
+				return;
+			}
+
+			throw new BadRequestException("Đơn hàng SHIPPING chỉ được chuyển sang COMPLETED");
+		}
+
+		if (currentStatus == OrderStatus.COMPLETED) {
+			throw new BadRequestException("Đơn hàng COMPLETED là trạng thái cuối, không thể thay đổi");
+		}
+
+		if (currentStatus == OrderStatus.CANCELLED) {
+			throw new BadRequestException("Đơn hàng CANCELLED là trạng thái cuối, không thể thay đổi");
+		}
 	}
 
 	private BigDecimal calculateDiscountAmount(String couponCode, BigDecimal totalAmount) {

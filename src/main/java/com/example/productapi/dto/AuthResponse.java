@@ -10,16 +10,18 @@ public class AuthResponse {
 	private String fullName;
 	private String email;
 	private UserRole role;
+	private String refreshToken;
 
 	public AuthResponse() {
 	}
 
-	public AuthResponse(String token, Long id, String fullName, String email, UserRole role) {
+	public AuthResponse(String token, String refreshToken, Long id, String fullName, String email, UserRole role) {
 		this.token = token;
 		this.id = id;
 		this.fullName = fullName;
 		this.email = email;
 		this.role = role;
+		this.refreshToken = refreshToken;
 	}
 
 	public String getToken() {
@@ -28,6 +30,10 @@ public class AuthResponse {
 
 	public String getTokenType() {
 		return tokenType;
+	}
+
+	public String getRefreshToken() {
+		return refreshToken;
 	}
 
 	public Long getId() {

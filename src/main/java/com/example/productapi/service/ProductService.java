@@ -8,25 +8,35 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.example.productapi.dto.PageResponse;
 import com.example.productapi.dto.ProductRequest;
 import com.example.productapi.dto.ProductResponse;
 import com.example.productapi.entity.Category;
 import com.example.productapi.entity.Product;
+import com.example.productapi.entity.User;
+import com.example.productapi.enums.UserRole;
+import com.example.productapi.exception.ForbiddenException;
 import com.example.productapi.exception.ResourceNotFoundException;
 import com.example.productapi.repository.CategoryRepository;
 import com.example.productapi.repository.ProductRepository;
+import com.example.productapi.security.CurrentUserService;
 
 @Service
 public class ProductService {
 
 	private final ProductRepository productRepository;
 	private final CategoryRepository categoryRepository;
+	private final CurrentUserService currentUserService;
+	private final CloudinaryService cloudinaryService;
 
-	public ProductService(ProductRepository productRepository, CategoryRepository categoryRepository) {
+	public ProductService(ProductRepository productRepository, CategoryRepository categoryRepository,
+			CurrentUserService currentUserService, CloudinaryService cloudinaryService) {
 		this.productRepository = productRepository;
 		this.categoryRepository = categoryRepository;
+		this.currentUserService = currentUserService;
+		this.cloudinaryService = cloudinaryService;
 	}
 
 	public List<ProductResponse> getAllProducts() {
@@ -39,6 +49,8 @@ public class ProductService {
 	}
 
 	public ProductResponse createProduct(ProductRequest request) {
+		User currentUser = currentUserService.getCurrentUser();
+
 		Category category = findCategoryById(request.getCategoryId());
 
 		Product product = new Product();
@@ -49,6 +61,7 @@ public class ProductService {
 		product.setImageUrl(request.getImageUrl());
 		product.setActive(request.getActive() == null ? true : request.getActive());
 		product.setCategory(category);
+		product.setSeller(currentUser);
 
 		Product savedProduct = productRepository.save(product);
 
@@ -57,6 +70,9 @@ public class ProductService {
 
 	public ProductResponse updateProduct(Long id, ProductRequest request) {
 		Product product = findProductById(id);
+
+		checkProductOwnerOrAdmin(product);
+
 		Category category = findCategoryById(request.getCategoryId());
 
 		product.setName(request.getName());
@@ -74,6 +90,9 @@ public class ProductService {
 
 	public void deleteProduct(Long id) {
 		Product product = findProductById(id);
+
+		checkProductOwnerOrAdmin(product);
+
 		productRepository.delete(product);
 	}
 
@@ -146,5 +165,31 @@ public class ProductService {
 		case "id", "name", "price", "quantity" -> sortBy;
 		default -> "id";
 		};
+	}
+
+	private void checkProductOwnerOrAdmin(Product product) {
+		User currentUser = currentUserService.getCurrentUser();
+
+		if (currentUser.getRole() == UserRole.ADMIN) {
+			return;
+		}
+
+		if (product.getSeller() == null || !product.getSeller().getId().equals(currentUser.getId())) {
+			throw new ForbiddenException("Bạn chỉ được thao tác với sản phẩm do chính mình tạo");
+		}
+	}
+
+	public ProductResponse uploadProductImage(Long productId, MultipartFile file) {
+		Product product = findProductById(productId);
+
+		checkProductOwnerOrAdmin(product);
+
+		String imageUrl = cloudinaryService.uploadProductImage(file);
+
+		product.setImageUrl(imageUrl);
+
+		Product savedProduct = productRepository.save(product);
+
+		return mapToResponse(savedProduct);
 	}
 }

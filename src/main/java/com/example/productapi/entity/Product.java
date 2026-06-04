@@ -49,6 +49,10 @@ public class Product {
 	@JoinColumn(name = "category_id", nullable = false)
 	private Category category;
 
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "seller_id")
+	private User seller;
+
 	public Product() {
 	}
 
@@ -85,6 +89,10 @@ public class Product {
 		return id;
 	}
 
+	public User getSeller() {
+		return seller;
+	}
+
 	public String getName() {
 		return name;
 	}
@@ -107,6 +115,10 @@ public class Product {
 
 	public Boolean getActive() {
 		return active;
+	}
+
+	public void setSeller(User seller) {
+		this.seller = seller;
 	}
 
 	public LocalDateTime getCreatedAt() {

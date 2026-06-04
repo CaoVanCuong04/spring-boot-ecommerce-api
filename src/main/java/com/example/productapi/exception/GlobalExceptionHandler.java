@@ -93,4 +93,14 @@ public class GlobalExceptionHandler {
 
 		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
 	}
+
+	@ExceptionHandler(BadRequestException.class)
+	public ResponseEntity<ApiErrorResponse> handleBadRequestException(BadRequestException ex,
+			HttpServletRequest request) {
+
+		ApiErrorResponse response = new ApiErrorResponse(HttpStatus.BAD_REQUEST.value(), "Bad Request", ex.getMessage(),
+				request.getRequestURI());
+
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+	}
 }

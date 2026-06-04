@@ -5,11 +5,14 @@ import org.springframework.stereotype.Service;
 
 import com.example.productapi.dto.AuthResponse;
 import com.example.productapi.dto.LoginRequest;
+import com.example.productapi.dto.LogoutRequest;
+import com.example.productapi.dto.RefreshTokenRequest;
+import com.example.productapi.dto.RefreshTokenResponse;
 import com.example.productapi.dto.RegisterRequest;
 import com.example.productapi.dto.UserResponse;
+import com.example.productapi.entity.RefreshToken;
 import com.example.productapi.entity.User;
 import com.example.productapi.enums.UserRole;
-import com.example.productapi.exception.ResourceNotFoundException;
 import com.example.productapi.exception.UnauthorizedException;
 import com.example.productapi.repository.UserRepository;
 import com.example.productapi.security.JwtService;
@@ -20,11 +23,14 @@ public class AuthService {
 	private final UserRepository userRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final JwtService jwtService;
+	private final RefreshTokenService refreshTokenService;
 
-	public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
+	public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService,
+			RefreshTokenService refreshTokenService) {
 		this.userRepository = userRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.jwtService = jwtService;
+		this.refreshTokenService = refreshTokenService;
 	}
 
 	public UserResponse register(RegisterRequest request) {
@@ -54,7 +60,7 @@ public class AuthService {
 		String email = request.getEmail().trim().toLowerCase();
 
 		User user = userRepository.findByEmail(email)
-				.orElseThrow(() -> new ResourceNotFoundException("Email hoặc mật khẩu không đúng"));
+				.orElseThrow(() -> new UnauthorizedException("Email hoặc mật khẩu không đúng"));
 
 		if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
 			throw new UnauthorizedException("Email hoặc mật khẩu không đúng");
@@ -66,11 +72,27 @@ public class AuthService {
 
 		String token = jwtService.generateToken(user);
 
-		return new AuthResponse(token, user.getId(), user.getFullName(), user.getEmail(), user.getRole());
+		String refreshToken = refreshTokenService.createRefreshToken(user).getToken();
+
+		return new AuthResponse(token, refreshToken, user.getId(), user.getFullName(), user.getEmail(), user.getRole());
 	}
 
 	private UserResponse mapToResponse(User user) {
 		return new UserResponse(user.getId(), user.getFullName(), user.getEmail(), user.getPhone(), user.getRole(),
 				user.getActive(), user.getCreatedAt(), user.getUpdatedAt());
+	}
+
+	public RefreshTokenResponse refreshToken(RefreshTokenRequest request) {
+		RefreshToken refreshToken = refreshTokenService.verifyRefreshToken(request.getRefreshToken());
+
+		User user = refreshToken.getUser();
+
+		String newAccessToken = jwtService.generateToken(user);
+
+		return new RefreshTokenResponse(newAccessToken, refreshToken.getToken());
+	}
+
+	public void logout(LogoutRequest request) {
+		refreshTokenService.revokeToken(request.getRefreshToken());
 	}
 }
